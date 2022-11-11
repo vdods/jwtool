@@ -1,13 +1,3 @@
-use std::io::BufRead;
-
-fn read_all_of_stdin() -> String {
-    let mut s = String::new();
-    for line in std::io::stdin().lock().lines().map(|line_r| line_r.unwrap()) {
-        s += &line;
-    }
-    s
-}
-
 /// This is just a representation useful for printing the JWT as JSON for use in formatting on the CLI via `jq .`
 pub struct Jwt {
     pub header: String,
@@ -38,6 +28,11 @@ fn decode_jwt(s: &str) -> Result<Jwt, anyhow::Error> {
 }
 
 fn main() -> Result<(), anyhow::Error> {
-    println!("{}", decode_jwt(&read_all_of_stdin())?);
+    let mut s = String::new();
+    use std::io::Read;
+    std::io::stdin().read_to_string(&mut s).unwrap();
+    let s_trimmed = s.trim();
+
+    println!("{}", decode_jwt(s_trimmed)?);
     Ok(())
 }
