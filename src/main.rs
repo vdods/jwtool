@@ -1,14 +1,24 @@
 /// This is just a representation useful for printing the JWT as JSON for use in formatting on the CLI via `jq .`
 pub struct Jwt {
     pub header: String,
-    pub payload: String,
+    pub payload_o: Option<String>,
     // non-base64-decoded.
     pub signature: String,
 }
 
 impl std::fmt::Display for Jwt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{{\"header\":{},\"payload\":{},\"signature\":\"{}\"}}", self.header, self.payload, self.signature)
+        write!(
+            f,
+            "{{\"header\":{},\"payload\":{},\"signature\":\"{}\"}}",
+            self.header,
+            if let Some(payload) = self.payload_o.as_deref() {
+                payload
+            } else {
+                "null"
+            },
+            self.signature
+        )
     }
 }
 
@@ -16,15 +26,36 @@ impl std::fmt::Display for Jwt {
 fn decode_jwt(s: &str) -> Result<Jwt, anyhow::Error> {
     let mut v: Vec<&str> = s.split('.').collect();
     if v.len() != 3 {
-        return Err(anyhow::anyhow!("JWT expected 3 tokens split at '.', but got {} tokens", v.len()));
+        return Err(anyhow::anyhow!(
+            "JWT expected 3 tokens split at '.', but got {} tokens",
+            v.len()
+        ));
     }
 
     let signature = String::from(v.pop().unwrap());
-    let payload = String::from_utf8(base64::decode_config(v.pop().unwrap(), base64::URL_SAFE_NO_PAD)?)?;
-    let header = String::from_utf8(base64::decode_config(v.pop().unwrap(), base64::URL_SAFE_NO_PAD)?)?;
+    let payload_o = {
+        let payload = v.pop().unwrap();
+        if payload.is_empty() {
+            None
+        } else {
+            Some(String::from_utf8(base64::decode_config(
+                payload,
+                base64::URL_SAFE_NO_PAD,
+            )?)?)
+        }
+    };
+    // let payload = String::from_utf8(base64::decode_config(v.pop().unwrap(), base64::URL_SAFE_NO_PAD)?)?};
+    let header = String::from_utf8(base64::decode_config(
+        v.pop().unwrap(),
+        base64::URL_SAFE_NO_PAD,
+    )?)?;
     assert!(v.is_empty());
 
-    Ok(Jwt { header, payload, signature })
+    Ok(Jwt {
+        header,
+        payload_o,
+        signature,
+    })
 }
 
 fn main() -> Result<(), anyhow::Error> {
